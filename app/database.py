@@ -1,5 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from datetime import datetime, timezone
 
 from app.config import settings
 
@@ -14,3 +15,5 @@ class Base(DeclarativeBase):
 def get_db():
     with SessionLocal() as db:
         yield db
+def maintenant() -> datetime:
+    return datetime.now(timezone.utc)
