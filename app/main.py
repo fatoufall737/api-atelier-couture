@@ -5,6 +5,7 @@ from sqlalchemy import text
 
 from app.deps import DbSession
 from app.routers import auth, catalogue, clients, utilisateurs, mesures
+from app.routers import commandes
 
 app = FastAPI(
     title="API Atelier de couture",
@@ -25,13 +26,16 @@ async def erreur_validation(request: Request, exc: RequestValidationError):
 
 
 PREFIXE = "/api/v1"
+
 ROUTEURS = (
     auth.router,
     utilisateurs.router,
     clients.router,
     catalogue.router,
     mesures.router,
+    commandes.router,
 )
+
 for routeur in ROUTEURS:
     app.include_router(routeur, prefix=PREFIXE)
 
