@@ -78,3 +78,24 @@ def headers(creer_utilisateur, se_connecter):
         u = creer_utilisateur(role)
         resultat[role] = se_connecter(u.email)
     return resultat
+@pytest.fixture()
+def inserer_commande(session_factory):
+    """Insère directement une commande minimale (sans passer par l'API)."""
+    from datetime import date
+
+    from app.models import Commande
+
+    def _inserer(client_id: int, cree_par_id: int, mesure_id: int | None = None) -> int:
+        with session_factory() as db:
+            cmd = Commande(
+                numero=f"TEMP-{client_id}-{mesure_id}",
+                client_id=client_id,
+                mesure_id=mesure_id,
+                date_livraison_prevue=date(2026, 12, 1),
+                cree_par_id=cree_par_id,
+            )
+            db.add(cmd)
+            db.commit()
+            return cmd.id
+
+    return _inserer
