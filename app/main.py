@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.deps import DbSession
-from app.routers import auth, catalogue, clients, utilisateurs
+from app.routers import auth, catalogue, clients, utilisateurs, mesures
 
 app = FastAPI(
     title="API Atelier de couture",
@@ -30,6 +30,7 @@ ROUTEURS = (
     utilisateurs.router,
     clients.router,
     catalogue.router,
+    mesures.router,
 )
 for routeur in ROUTEURS:
     app.include_router(routeur, prefix=PREFIXE)

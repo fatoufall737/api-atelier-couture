@@ -12,5 +12,9 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
 
+    admin_email: str
+    admin_password: str
+    admin_nom_complet: str
+
 
 settings = Settings()
