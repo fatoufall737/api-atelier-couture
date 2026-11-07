@@ -85,7 +85,9 @@ def historique_commande(
         raise NonTrouve("Commande introuvable.")
 
     return commande_service.obtenir_historique_statuts(db, commande_id)
-    class PaiementCreate(BaseModel):
+    
+
+class PaiementCreate(BaseModel):
     montant: int = Field(gt=0)
     mode: str
     reference: str | None = None
@@ -159,7 +161,9 @@ def confirmer_livraison(
         return commande_service.confirmer_livraison(db, commande.livraison)
     except ValueError as erreur:
         raise DonneesInvalides(str(erreur))
-        @router.get("/commandes/statistiques")
+
+
+@router.get("/commandes/statistiques")
 def statistiques_commandes(
     db: DbSession,
     _: UtilisateurConnecte

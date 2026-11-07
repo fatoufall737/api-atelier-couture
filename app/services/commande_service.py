@@ -1,16 +1,21 @@
 from datetime import date
 from uuid import uuid4
 
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models.commande import Commande, LigneCommande, HistoriqueStatut
+from app.exceptions import Conflit, DonneesInvalides
 from app.models.client import Client
+from app.models.commande import (
+    Commande,
+    HistoriqueStatut,
+    LigneCommande,
+    Livraison,
+    Paiement,
+)
 from app.models.mesure import Mesure
 from app.schemas.commande import CommandeCreate
-from sqlalchemy import select
-from app.models.commande import Paiement
-from app.models.commande import Livraison
-from sqlalchemy import func
+
 
 def creer_commande(
     db: Session,
@@ -74,192 +79,70 @@ def creer_commande(
             utilisateur_id=cree_par_id,
         )
     )
-
-    db.commit()
-    db.refresh(commande)
-
+    db.flush()
     return commande
-    def changer_statut_commande(
+
+
+TRANSITIONS = {
+    "en_attente": ["en_coupe", "annulee"],
+    "en_coupe": ["en_couture", "annulee"],
+    "en_couture": ["essayage", "terminee", "annulee"],
+    "essayage": ["retouches", "terminee", "annulee"],
+    "retouches": ["essayage", "terminee", "annulee"],
+    "terminee": ["livree"],
+    "livree": [],
+    "annulee": [],
+}
+
+
+def changer_statut_commande(
     db: Session,
     commande: Commande,
     nouveau_statut: str,
     utilisateur_id: int,
     commentaire: str | None = None,
 ) -> Commande:
-
-    statuts_autorises = {
-        "en_attente",
-        "en_coupe",
-        "en_confection",
-        "en_finition",
-        "terminee",
-        "livree",
-        "annulee",
-    }
-
-    if nouveau_statut not in statuts_autorises:
-        raise ValueError("Statut de commande invalide.")
-
     ancien_statut = commande.statut
 
-    if ancien_statut == nouveau_statut:
-        raise ValueError("La commande possède déjà ce statut.")
+    if nouveau_statut not in TRANSITIONS:
+        raise DonneesInvalides(f"Statut inconnu : {nouveau_statut}.")
+
+    if nouveau_statut == ancien_statut:
+        raise Conflit(f"La commande est déjà au statut {ancien_statut}.")
+
+    if nouveau_statut == "livree":
+        raise Conflit(
+            "Le statut livree ne peut pas être posé ici : "
+            "il résulte de la confirmation de livraison."
+        )
+
+    possibles = TRANSITIONS[ancien_statut]
+    if nouveau_statut not in possibles:
+        liste = ", ".join(sorted(possibles)) or "aucun"
+        raise Conflit(
+            f"Transition interdite : {ancien_statut} → {nouveau_statut}. "
+            f"Statuts possibles : {liste}"
+        )
+
+    if (
+        nouveau_statut == "annulee"
+        and commande.montant_paye > 0
+        and not (commentaire and commentaire.strip())
+    ):
+        raise DonneesInvalides(
+            "Cette commande a reçu un acompte : indiquez dans le commentaire "
+            "ce que devient l'argent (remboursement, avoir...)."
+        )
 
     commande.statut = nouveau_statut
-
-    commande.historique.append(
+    db.add(
         HistoriqueStatut(
+            commande_id=commande.id,
             ancien_statut=ancien_statut,
             nouveau_statut=nouveau_statut,
             commentaire=commentaire,
             utilisateur_id=utilisateur_id,
         )
     )
-
-    db.commit()
-    db.refresh(commande)
-
+    db.flush()
     return commande
-    def obtenir_historique_statuts(
-    db: Session,
-    commande_id: int
-) -> list[HistoriqueStatut]:
-
-    requete = (
-        select(HistoriqueStatut)
-        .where(HistoriqueStatut.commande_id == commande_id)
-        .order_by(HistoriqueStatut.date_changement.asc())
-    )
-
-    return db.scalars(requete).all()
-    def enregistrer_paiement(
-    db: Session,
-    commande: Commande,
-    montant: int,
-    mode: str,
-    utilisateur_id: int,
-    reference: str | None = None,
-) -> Paiement:
-
-    modes_autorises = {
-        "especes",
-        "wave",
-        "orange_money",
-        "virement",
-        "cheque",
-    }
-
-    if montant <= 0:
-        raise ValueError("Le montant du paiement doit être positif.")
-
-    if mode not in modes_autorises:
-        raise ValueError("Mode de paiement invalide.")
-
-    if montant > commande.solde:
-        raise ValueError("Le paiement dépasse le solde restant.")
-
-    paiement = Paiement(
-        commande_id=commande.id,
-        montant=montant,
-        mode=mode,
-        reference=reference,
-        enregistre_par_id=utilisateur_id,
-    )
-
-    commande.montant_paye += montant
-
-    db.add(paiement)
-    db.commit()
-    db.refresh(paiement)
-
-    return paiement
-    def planifier_livraison(
-    db: Session,
-    commande: Commande,
-    mode: str,
-    date_prevue: date,
-    adresse: str | None = None,
-    livreur: str | None = None,
-    notes: str | None = None,
-) -> Livraison:
-
-    modes_autorises = {"retrait_atelier", "domicile"}
-
-    if mode not in modes_autorises:
-        raise ValueError("Mode de livraison invalide.")
-
-    if mode == "domicile" and not adresse:
-        raise ValueError("Une adresse est obligatoire pour une livraison à domicile.")
-
-    if commande.livraison is not None:
-        raise ValueError("Une livraison est déjà planifiée pour cette commande.")
-
-    livraison = Livraison(
-        commande_id=commande.id,
-        mode=mode,
-        date_prevue=date_prevue,
-        adresse=adresse,
-        livreur=livreur,
-        notes=notes,
-        statut="planifiee",
-    )
-
-    db.add(livraison)
-    db.commit()
-    db.refresh(livraison)
-
-    return livraison
-    def confirmer_livraison(
-    db: Session,
-    livraison: Livraison,
-) -> Livraison:
-
-    if livraison.statut == "livree":
-        raise ValueError("Cette livraison est déjà confirmée.")
-
-    livraison.statut = "livree"
-    livraison.date_effective = date.today()
-
-    livraison.commande.statut = "livree"
-
-    livraison.commande.historique.append(
-        HistoriqueStatut(
-            ancien_statut="terminee",
-            nouveau_statut="livree",
-            commentaire="Livraison confirmée.",
-            utilisateur_id=livraison.commande.cree_par_id,
-        )
-    )
-
-    db.commit()
-    db.refresh(livraison)
-
-    return livraison
-    def obtenir_statistiques_commandes(db: Session) -> dict:
-    total_commandes = db.scalar(
-        select(func.count(Commande.id))
-    ) or 0
-
-    chiffre_affaires = db.scalar(
-        select(func.sum(Commande.montant_total))
-        .where(Commande.statut != "annulee")
-    ) or 0
-
-    montant_encaisse = db.scalar(
-        select(func.sum(Commande.montant_paye))
-    ) or 0
-
-    commandes_par_statut = db.execute(
-        select(Commande.statut, func.count(Commande.id))
-        .group_by(Commande.statut)
-    ).all()
-
-    return {
-        "total_commandes": total_commandes,
-        "chiffre_affaires": chiffre_affaires,
-        "montant_encaisse": montant_encaisse,
-        "commandes_par_statut": {
-            statut: nombre
-            for statut, nombre in commandes_par_statut
-        },
-    }
