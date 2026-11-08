@@ -131,9 +131,3 @@ def encaisser_paiement(commande_id: int, data: PaiementEntree, db: DbSession, ut
     }
 
 
-@router.get("/commandes/statistiques")
-def statistiques_commandes(
-    db: DbSession,
-    _: UtilisateurConnecte
-):
-    return commande_service.obtenir_statistiques_commandes(db)
