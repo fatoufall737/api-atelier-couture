@@ -1,8 +1,10 @@
+from collections import defaultdict
 from datetime import date
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.exceptions import DonneesInvalides
 from app.models.commande import Commande, Livraison, Paiement
 
 STATUTS = [
@@ -91,3 +93,41 @@ def tableau_de_bord(db: Session) -> dict:
         "commandes_pretes_a_livrer": int(pretes),
         "livraisons_du_jour": int(livraisons_du_jour),
     }
+
+
+def chiffre_affaires_par_periode(
+    db: Session, granularite: str, date_debut: date, date_fin: date
+) -> list[dict]:
+    if date_debut > date_fin:
+        raise DonneesInvalides("date_debut doit être antérieure à date_fin.")
+
+    def periode(jour) -> str:
+        if hasattr(jour, "date"):  # au cas où la colonne contient une heure
+            jour = jour.date()
+        return jour.isoformat() if granularite == "jour" else jour.strftime("%Y-%m")
+
+    periodes = defaultdict(lambda: {"chiffre_affaires": 0, "encaisse": 0})
+
+    # Chiffre d'affaires : commandes non annulées, datées à la date de commande
+    commandes = db.execute(
+        select(Commande.date_commande, Commande.montant_total).where(
+            Commande.statut != "annulee",
+            Commande.date_commande >= date_debut,
+            Commande.date_commande <= date_fin,
+        )
+    ).all()
+    for jour, montant in commandes:
+        periodes[periode(jour)]["chiffre_affaires"] += montant
+
+    # Encaissé : paiements datés à leur date de paiement
+    paiements = db.execute(
+        select(Paiement.date_paiement, Paiement.montant).where(
+            Paiement.date_paiement >= date_debut,
+            Paiement.date_paiement <= date_fin,
+        )
+    ).all()
+    for jour, montant in paiements:
+        periodes[periode(jour)]["encaisse"] += montant
+
+    # Seules les périodes avec de l'activité apparaissent, triées dans l'ordre
+    return [{"periode": nom, **valeurs} for nom, valeurs in sorted(periodes.items())]

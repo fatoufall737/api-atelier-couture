@@ -10,6 +10,7 @@ STATUTS = [
 ]
 
 URL = "/api/v1/statistiques/tableau-de-bord"
+URL_CA = "/api/v1/statistiques/chiffre-affaires"
 
 
 def test_admin_voit_le_tableau_de_bord(client, headers):
@@ -49,3 +50,47 @@ def test_tailleur_ne_voit_pas_les_statistiques(client, headers):
 def test_statistiques_sans_jeton_refusees(client):
     reponse = client.get(URL)
     assert reponse.status_code == 401
+
+
+def test_chiffre_affaires_par_defaut(client, headers):
+    reponse = client.get(URL_CA, headers=headers["admin"])
+    assert reponse.status_code == 200
+    assert isinstance(reponse.json(), list)
+
+
+def test_chiffre_affaires_periode_sans_activite_est_vide(client, headers):
+    # Seules les périodes avec activité sont listées
+    reponse = client.get(
+        URL_CA,
+        params={
+            "granularite": "mois",
+            "date_debut": "2000-01-01",
+            "date_fin": "2000-12-31",
+        },
+        headers=headers["admin"],
+    )
+    assert reponse.status_code == 200
+    assert reponse.json() == []
+
+
+def test_chiffre_affaires_dates_inversees_refusees(client, headers):
+    reponse = client.get(
+        URL_CA,
+        params={"date_debut": "2026-12-31", "date_fin": "2026-01-01"},
+        headers=headers["admin"],
+    )
+    assert reponse.status_code == 422
+    assert "detail" in reponse.json()
+
+
+def test_chiffre_affaires_granularite_invalide_refusee(client, headers):
+    reponse = client.get(
+        URL_CA, params={"granularite": "semaine"}, headers=headers["admin"]
+    )
+    assert reponse.status_code == 422
+
+
+def test_chiffre_affaires_reserve_a_l_admin(client, headers):
+    assert client.get(URL_CA, headers=headers["accueil"]).status_code == 403
+    assert client.get(URL_CA, headers=headers["tailleur"]).status_code == 403
+    assert client.get(URL_CA).status_code == 401
