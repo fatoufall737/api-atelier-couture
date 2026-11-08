@@ -6,6 +6,7 @@ from sqlalchemy import text
 from app.deps import DbSession
 from app.routers import auth, catalogue, clients, utilisateurs, mesures
 from app.routers import commandes, commandes_edition, livraisons
+from app.routers import statistiques
 
 app = FastAPI(
     title="API Atelier de couture",
@@ -36,6 +37,7 @@ ROUTEURS = (
     commandes.router,
     commandes_edition.router,
     livraisons.router,
+    statistiques.router,
 )
 
 for routeur in ROUTEURS:
