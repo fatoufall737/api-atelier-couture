@@ -1,10 +1,11 @@
-from datetime import date
+from datetime import date, timedelta
 from uuid import uuid4
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.exceptions import Conflit, DonneesInvalides
+from app.models.catalogue import TypeVetement
 from app.models.client import Client
 from app.models.commande import (
     Commande,
@@ -34,10 +35,22 @@ def creer_commande(
         if mesure is None or mesure.client_id != donnees.client_id:
             raise ValueError("Mensuration introuvable pour ce client.")
 
-    sous_total = sum(
-        ligne.quantite * ligne.prix_unitaire
-        for ligne in donnees.lignes
-    )
+    prix_lignes = []
+    delais = []
+    for ligne in donnees.lignes:
+        tv = db.get(TypeVetement, ligne.type_vetement_id)
+        if tv is None:
+            raise DonneesInvalides("Prestation introuvable dans le catalogue.")
+        if not tv.actif:
+            raise DonneesInvalides(f"La prestation {tv.nom} n'est plus commandable.")
+        prix_lignes.append(tv.prix_base if ligne.prix_unitaire is None else ligne.prix_unitaire)
+        delais.append(tv.delai_jours)
+
+    sous_total = sum(l.quantite * p for l, p in zip(donnees.lignes, prix_lignes))
+
+    date_prevue = donnees.date_livraison_prevue or (date.today() + timedelta(days=max(delais)))
+    if date_prevue < date.today():
+        raise DonneesInvalides("La date de livraison prevue ne peut pas preceder la date de commande.")
 
     if donnees.remise > sous_total:
         raise ValueError("La remise ne peut pas dépasser le montant total.")
@@ -48,7 +61,7 @@ def creer_commande(
         numero=f"TEMP-{uuid4().hex}",
         client_id=donnees.client_id,
         mesure_id=donnees.mesure_id,
-        date_livraison_prevue=donnees.date_livraison_prevue,
+        date_livraison_prevue=date_prevue,
         remise=donnees.remise,
         montant_total=montant_total,
         montant_paye=0,
@@ -56,13 +69,13 @@ def creer_commande(
         cree_par_id=cree_par_id,
     )
 
-    for ligne in donnees.lignes:
+    for ligne, prix in zip(donnees.lignes, prix_lignes):
         commande.lignes.append(
             LigneCommande(
                 type_vetement_id=ligne.type_vetement_id,
                 description=ligne.description,
                 quantite=ligne.quantite,
-                prix_unitaire=ligne.prix_unitaire,
+                prix_unitaire=prix,
             )
         )
 

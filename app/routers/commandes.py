@@ -1,7 +1,8 @@
+from typing import Literal
 from fastapi import APIRouter, Response, status
 from sqlalchemy import select
 
-from app.deps import DbSession, UtilisateurConnecte, Tailleur
+from app.deps import Accueil, DbSession, Tailleur, UtilisateurConnecte
 from app.models.commande import Commande, HistoriqueStatut
 from app.schemas.commande import CommandeCreate, CommandeRead
 from app.services import commande_service
@@ -21,10 +22,12 @@ router = APIRouter(tags=["Commandes"])
 def creer_commande(
     data: CommandeCreate,
     db: DbSession,
-    utilisateur: Tailleur,
+    utilisateur: Accueil,
 ):
     try:
-        return commande_service.creer_commande(db, data, utilisateur.id)
+        commande = commande_service.creer_commande(db, data, utilisateur.id)
+        db.commit()
+        return commande
     except ValueError as erreur:
         raise DonneesInvalides(str(erreur))
 
@@ -53,24 +56,17 @@ def detail_commande(
     return commande
 
 
-@router.patch("/commandes/{commande_id}/statut", response_model=CommandeRead)
-def modifier_statut(
-    commande_id: int,
-    nouveau_statut: str,
-    db: DbSession,
-    utilisateur: Tailleur,
-):
-    commande = db.get(Commande, commande_id)
+class StatutEntree(BaseModel):
+    statut: Literal["en_attente", "en_coupe", "en_couture", "essayage",
+                    "retouches", "terminee", "livree", "annulee"]
+    commentaire: str | None = None
 
-    if commande is None:
-        raise NonTrouve("Commande introuvable.")
 
-    try:
-        return commande_service.changer_statut_commande(
-            db, commande, nouveau_statut, utilisateur.id
-        )
-    except ValueError as erreur:
-        raise DonneesInvalides(str(erreur))
+@router.post("/commandes/{commande_id}/statut", response_model=CommandeRead)
+def modifier_statut(commande_id: int, data: StatutEntree, db: DbSession, utilisateur: UtilisateurConnecte):
+    commande = edition_service.changer_statut(db, commande_id, data.statut, data.commentaire, utilisateur)
+    db.commit()
+    return commande
 
 
 @router.get("/commandes/{commande_id}/historique")
@@ -101,25 +97,29 @@ class LivraisonCreate(BaseModel):
     notes: str | None = None
 
 
+from typing import Literal
+from app.services import commande_edition_service as edition_service
+
+
+class PaiementEntree(BaseModel):
+    montant: int = Field(gt=0)
+    mode: Literal["especes", "wave", "orange_money", "virement", "cheque"]
+    reference: str | None = None
+    date_paiement: date | None = None
+
+
 @router.post("/commandes/{commande_id}/paiements", status_code=201)
-def ajouter_paiement(
-    commande_id: int,
-    data: PaiementCreate,
-    db: DbSession,
-    utilisateur: Tailleur,
-):
-    commande = db.get(Commande, commande_id)
-
-    if commande is None:
-        raise NonTrouve("Commande introuvable.")
-
-    try:
-        return commande_service.enregistrer_paiement(
-            db, commande, data.montant, data.mode,
-            utilisateur.id, data.reference
-        )
-    except ValueError as erreur:
-        raise DonneesInvalides(str(erreur))
+def encaisser_paiement(commande_id: int, data: PaiementEntree, db: DbSession, utilisateur: Accueil):
+    p = edition_service.encaisser_paiement(db, commande_id, data.model_dump(), utilisateur.id)
+    db.commit()
+    return {
+        "id": p.id,
+        "commande_id": p.commande_id,
+        "montant": p.montant,
+        "mode": p.mode,
+        "reference": p.reference,
+        "date_paiement": p.date_paiement,
+    }
 
 
 @router.post("/commandes/{commande_id}/livraison", status_code=201)
@@ -127,7 +127,7 @@ def ajouter_livraison(
     commande_id: int,
     data: LivraisonCreate,
     db: DbSession,
-    utilisateur: Tailleur,
+    utilisateur: Accueil,
 ):
     commande = db.get(Commande, commande_id)
 
@@ -147,7 +147,7 @@ def ajouter_livraison(
 def confirmer_livraison(
     commande_id: int,
     db: DbSession,
-    utilisateur: Tailleur,
+    utilisateur: Accueil,
 ):
     commande = db.get(Commande, commande_id)
 
@@ -155,7 +155,7 @@ def confirmer_livraison(
         raise NonTrouve("Commande introuvable.")
 
     if commande.livraison is None:
-        raise NonTrouve("Aucune livraison planifiée.")
+        raise NonTrouve("Aucune livraison planifiÃ©e.")
 
     try:
         return commande_service.confirmer_livraison(db, commande.livraison)

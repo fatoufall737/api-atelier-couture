@@ -1,4 +1,4 @@
-from datetime import date
+﻿from datetime import date
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
@@ -6,13 +6,13 @@ class LigneCommandeCreate(BaseModel):
     type_vetement_id: int
     description: str | None = None
     quantite: int = Field(gt=0)
-    prix_unitaire: int = Field(ge=0)
+    prix_unitaire: int | None = Field(default=None, ge=0)
 
 
 class CommandeCreate(BaseModel):
     client_id: int
     mesure_id: int | None = None
-    date_livraison_prevue: date
+    date_livraison_prevue: date | None = None
     remise: int = Field(default=0, ge=0)
     notes: str | None = None
     lignes: list[LigneCommandeCreate] = Field(min_length=1)
