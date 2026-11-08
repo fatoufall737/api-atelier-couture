@@ -1,3 +1,4 @@
+from fastapi import Query
 from typing import Literal
 from fastapi import APIRouter, Response, status
 from sqlalchemy import select
@@ -32,14 +33,68 @@ def creer_commande(
         raise DonneesInvalides(str(erreur))
 
 
-@router.get("/commandes", response_model=list[CommandeRead])
+@router.get("/commandes")
 def lister_commandes(
     db: DbSession,
     _: UtilisateurConnecte,
+    statut: str | None = None,
+    client_id: int | None = None,
+    en_retard: bool | None = None,
+    date_min: date | None = None,
+    date_max: date | None = None,
+    numero: str | None = None,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
 ):
-    return db.scalars(
-        select(Commande).order_by(Commande.created_at.desc())
+    from sqlalchemy import and_, func
+    from app.models.client import Client
+
+    retard = and_(
+        Commande.date_livraison_prevue < date.today(),
+        Commande.statut.notin_(["livree", "annulee"]),
+    )
+    conds = []
+    if statut:
+        conds.append(Commande.statut == statut)
+    if client_id:
+        conds.append(Commande.client_id == client_id)
+    if en_retard is True:
+        conds.append(retard)
+    if en_retard is False:
+        conds.append(~retard)
+    if date_min:
+        conds.append(Commande.date_commande >= date_min)
+    if date_max:
+        conds.append(Commande.date_commande <= date_max)
+    if numero:
+        conds.append(Commande.numero.ilike("%" + numero + "%"))
+
+    total = db.scalar(select(func.count(Commande.id)).where(*conds)) or 0
+    rows = db.execute(
+        select(Commande, Client)
+        .join(Client, Commande.client_id == Client.id)
+        .where(*conds)
+        .order_by(Commande.date_commande.desc(), Commande.id.desc())
+        .limit(limit)
+        .offset(offset)
     ).all()
+    items = []
+    for c, cli in rows:
+        items.append({
+            "id": c.id,
+            "numero": c.numero,
+            "client_id": c.client_id,
+            "client_nom": cli.prenom + " " + cli.nom,
+            "statut": c.statut,
+            "date_commande": c.date_commande,
+            "date_livraison_prevue": c.date_livraison_prevue,
+            "montant_total": c.montant_total,
+            "montant_paye": c.montant_paye,
+            "solde": c.montant_total - c.montant_paye,
+            "en_retard": c.date_livraison_prevue < date.today()
+            and c.statut not in ("livree", "annulee"),
+        })
+    return {"items": items, "total": total, "limit": limit, "offset": offset}
 
 
 @router.get("/commandes/{commande_id}", response_model=CommandeRead)
