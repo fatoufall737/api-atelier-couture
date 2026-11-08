@@ -5,7 +5,7 @@ from sqlalchemy import text
 
 from app.deps import DbSession
 from app.routers import auth, catalogue, clients, utilisateurs, mesures
-from app.routers import commandes, commandes_edition
+from app.routers import commandes, commandes_edition, livraisons
 
 app = FastAPI(
     title="API Atelier de couture",
@@ -35,6 +35,7 @@ ROUTEURS = (
     mesures.router,
     commandes.router,
     commandes_edition.router,
+    livraisons.router,
 )
 
 for routeur in ROUTEURS:

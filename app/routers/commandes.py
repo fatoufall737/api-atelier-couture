@@ -70,18 +70,27 @@ def modifier_statut(commande_id: int, data: StatutEntree, db: DbSession, utilisa
 
 
 @router.get("/commandes/{commande_id}/historique")
-def historique_commande(
-    commande_id: int,
-    db: DbSession,
-    _: UtilisateurConnecte,
-):
+def historique_commande(commande_id: int, db: DbSession, _: UtilisateurConnecte):
     commande = db.get(Commande, commande_id)
-
     if commande is None:
         raise NonTrouve("Commande introuvable.")
+    lignes = db.scalars(
+        select(HistoriqueStatut)
+        .where(HistoriqueStatut.commande_id == commande_id)
+        .order_by(HistoriqueStatut.date_changement, HistoriqueStatut.id)
+    ).all()
+    return [
+        {
+            "id": h.id,
+            "ancien_statut": h.ancien_statut,
+            "nouveau_statut": h.nouveau_statut,
+            "commentaire": h.commentaire,
+            "utilisateur_id": h.utilisateur_id,
+            "date_changement": h.date_changement,
+        }
+        for h in lignes
+    ]
 
-    return commande_service.obtenir_historique_statuts(db, commande_id)
-    
 
 class PaiementCreate(BaseModel):
     montant: int = Field(gt=0)
@@ -120,47 +129,6 @@ def encaisser_paiement(commande_id: int, data: PaiementEntree, db: DbSession, ut
         "reference": p.reference,
         "date_paiement": p.date_paiement,
     }
-
-
-@router.post("/commandes/{commande_id}/livraison", status_code=201)
-def ajouter_livraison(
-    commande_id: int,
-    data: LivraisonCreate,
-    db: DbSession,
-    utilisateur: Accueil,
-):
-    commande = db.get(Commande, commande_id)
-
-    if commande is None:
-        raise NonTrouve("Commande introuvable.")
-
-    try:
-        return commande_service.planifier_livraison(
-            db, commande, data.mode, data.date_prevue,
-            data.adresse, data.livreur, data.notes
-        )
-    except ValueError as erreur:
-        raise DonneesInvalides(str(erreur))
-
-
-@router.patch("/commandes/{commande_id}/livraison/confirmer")
-def confirmer_livraison(
-    commande_id: int,
-    db: DbSession,
-    utilisateur: Accueil,
-):
-    commande = db.get(Commande, commande_id)
-
-    if commande is None:
-        raise NonTrouve("Commande introuvable.")
-
-    if commande.livraison is None:
-        raise NonTrouve("Aucune livraison planifiÃ©e.")
-
-    try:
-        return commande_service.confirmer_livraison(db, commande.livraison)
-    except ValueError as erreur:
-        raise DonneesInvalides(str(erreur))
 
 
 @router.get("/commandes/statistiques")
