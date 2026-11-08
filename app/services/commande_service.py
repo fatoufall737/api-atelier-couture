@@ -57,10 +57,19 @@ def creer_commande(
 
     montant_total = sous_total - donnees.remise
 
+    mesure_defaut = donnees.mesure_id
+    if mesure_defaut is None:
+        derniere = db.scalars(
+            select(Mesure)
+            .where(Mesure.client_id == donnees.client_id)
+            .order_by(Mesure.date_prise.desc(), Mesure.id.desc())
+        ).first()
+        mesure_defaut = derniere.id if derniere else None
+
     commande = Commande(
         numero=f"TEMP-{uuid4().hex}",
         client_id=donnees.client_id,
-        mesure_id=donnees.mesure_id,
+        mesure_id=mesure_defaut,
         date_livraison_prevue=date_prevue,
         remise=donnees.remise,
         montant_total=montant_total,
