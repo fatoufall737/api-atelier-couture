@@ -5,7 +5,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.exceptions import DonneesInvalides
-from app.models.commande import Commande, Livraison, Paiement
+from app.models.catalogue import TypeVetement
+from app.models.client import Client
+from app.models.commande import Commande, LigneCommande, Livraison, Paiement
 
 STATUTS = [
     "en_attente",
@@ -131,3 +133,119 @@ def chiffre_affaires_par_periode(
 
     # Seules les périodes avec de l'activité apparaissent, triées dans l'ordre
     return [{"periode": nom, **valeurs} for nom, valeurs in sorted(periodes.items())]
+
+
+def ventes_par_type_vetement(
+    db: Session, date_debut: date, date_fin: date
+) -> list[dict]:
+    if date_debut > date_fin:
+        raise DonneesInvalides("date_debut doit être antérieure à date_fin.")
+
+    # Quantité vendue et chiffre d'affaires AVANT remise, par type de vêtement.
+    # Commandes annulées exclues, période sur la date de commande.
+    chiffre = func.sum(LigneCommande.quantite * LigneCommande.prix_unitaire)
+    lignes = db.execute(
+        select(
+            TypeVetement.id,
+            TypeVetement.nom,
+            func.sum(LigneCommande.quantite),
+            chiffre,
+        )
+        .join(LigneCommande, LigneCommande.type_vetement_id == TypeVetement.id)
+        .join(Commande, Commande.id == LigneCommande.commande_id)
+        .where(
+            Commande.statut != "annulee",
+            Commande.date_commande >= date_debut,
+            Commande.date_commande <= date_fin,
+        )
+        .group_by(TypeVetement.id, TypeVetement.nom)
+        .order_by(chiffre.desc(), TypeVetement.nom)
+    ).all()
+
+    return [
+        {
+            "type_vetement_id": identifiant,
+            "nom": nom,
+            "quantite_vendue": int(quantite),
+            "chiffre_affaires": int(montant),
+        }
+        for identifiant, nom, quantite, montant in lignes
+    ]
+
+
+def meilleurs_clients(
+    db: Session, date_debut: date, date_fin: date, limite: int
+) -> list[dict]:
+    if date_debut > date_fin:
+        raise DonneesInvalides("date_debut doit être antérieure à date_fin.")
+
+    # Commandes non annulées de la période, regroupées par client
+    chiffre = func.sum(Commande.montant_total)
+    lignes = db.execute(
+        select(
+            Client.id,
+            Client.nom,
+            Client.prenom,
+            func.count(Commande.id),
+            chiffre,
+            func.sum(Commande.montant_total - Commande.montant_paye),
+        )
+        .join(Commande, Commande.client_id == Client.id)
+        .where(
+            Commande.statut != "annulee",
+            Commande.date_commande >= date_debut,
+            Commande.date_commande <= date_fin,
+        )
+        .group_by(Client.id, Client.nom, Client.prenom)
+        .order_by(chiffre.desc(), Client.nom)
+        .limit(limite)
+    ).all()
+
+    return [
+        {
+            "client_id": identifiant,
+            "client_nom": f"{prenom} {nom}",
+            "nb_commandes": int(nombre),
+            "chiffre_affaires": int(montant),
+            "solde_du": int(solde),
+        }
+        for identifiant, nom, prenom, nombre, montant, solde in lignes
+    ]
+
+
+def commandes_impayees(db: Session, limit: int, offset: int) -> tuple[list[dict], int]:
+    # Commandes non annulées dont le solde n'est pas à zéro
+    solde = Commande.montant_total - Commande.montant_paye
+    conditions = (Commande.statut != "annulee", solde > 0)
+
+    total = db.scalar(select(func.count(Commande.id)).where(*conditions))
+
+    lignes = db.execute(
+        select(Commande, Client)
+        .join(Client, Client.id == Commande.client_id)
+        .where(*conditions)
+        # Les plus urgentes d'abord : date prévue la plus proche
+        .order_by(Commande.date_livraison_prevue.asc().nulls_last(), Commande.id)
+        .limit(limit)
+        .offset(offset)
+    ).all()
+
+    aujourdhui = date.today()
+    items = []
+    for commande, client in lignes:
+        prevue = commande.date_livraison_prevue
+        items.append(
+            {
+                "id": commande.id,
+                "numero": commande.numero,
+                "client_id": client.id,
+                "client_nom": f"{client.prenom} {client.nom}",
+                "statut": commande.statut,
+                "montant_total": commande.montant_total,
+                "montant_paye": commande.montant_paye,
+                "solde": commande.montant_total - commande.montant_paye,
+                "date_livraison_prevue": prevue,
+                "en_retard": prevue is not None and prevue < aujourdhui,
+            }
+        )
+    return items, int(total)
