@@ -3,7 +3,7 @@ import os
 # Variables de test, définies AVANT l'import de l'application : elles passent devant le .env,
 # donc les tests ne touchent jamais votre vraie base PostgreSQL.
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test_unused.db")
-os.environ.setdefault("SECRET_KEY", "cle-de-test-uniquement")
+os.environ.setdefault("SECRET_KEY", "cle-de-test-uniquement-pas-pour-la-production")
 
 import pytest
 from fastapi.testclient import TestClient

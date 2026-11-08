@@ -124,16 +124,16 @@ Toutes les routes sont préfixées par `/api/v1`, sauf `/health`.
 | 9 | GET /clients/{id} | tous | fait |
 | 10 | PATCH /clients/{id} | tous | fait |
 | 11 | DELETE /clients/{id} | admin | fait |
-| 12-13 | GET /clients/{id}/commandes, /resume | tous | à faire |
+| 12-13 | GET /clients/{id}/commandes, /resume | tous | fait |
 | 14 | POST /catalogue | admin | fait |
 | 15 | GET /catalogue | tous | fait |
 | 16 | GET /catalogue/{id} | tous | fait |
 | 17 | PATCH /catalogue/{id} | admin | fait |
-| 18-23 | Mesures | tailleur / tous | à faire |
-| 24-31 | Commandes | accueil / tous | à faire |
-| 32-34 | Paiements | accueil / admin | à faire |
-| 35-38 | Livraisons | accueil / tous | à faire |
-| 39-43 | Statistiques | admin | à faire |
+| 18-23 | Mesures | tailleur / tous | fait |
+| 24-31 | Commandes | accueil / tous | fait |
+| 32-34 | Paiements | accueil / admin | fait |
+| 35-38 | Livraisons | accueil / tous | fait |
+| 39-43 | Statistiques | admin | fait |
 | 44 | GET /health | public | fait |
 
 ## Conventions
@@ -142,15 +142,3 @@ Toutes les routes sont préfixées par `/api/v1`, sauf `/health`.
 - Listes paginées : `{"items": [...], "total": n, "limit": n, "offset": n}` (limit 20 par défaut, 100 au maximum).
 - Les montants sont des entiers en FCFA, les mesures des nombres en centimètres.
 - Authentification : jetons JWT signés avec expiration ; un compte désactivé est refusé immédiatement.
-## Routes (préfixe /api/v1, sauf /health)
-
-- Auth : POST /auth/login, GET /auth/me
-- Utilisateurs (admin) : POST, GET /utilisateurs, GET, PATCH /utilisateurs/{id}
-- Clients : POST, GET /clients, GET, PATCH, DELETE /clients/{id}, GET /clients/{id}/commandes, GET /clients/{id}/resume
-- Catalogue : POST, GET /catalogue, GET, PATCH /catalogue/{id}
-- Mesures : POST, GET /clients/{id}/mesures, GET /clients/{id}/mesures/derniere, GET, PATCH, DELETE /mesures/{id}
-- Commandes : POST, GET /commandes, GET, PATCH /commandes/{id}, POST /commandes/{id}/statut, GET /commandes/{id}/historique, POST /commandes/{id}/lignes, DELETE /commandes/{id}/lignes/{ligne_id}
-- Paiements : POST, GET /commandes/{id}/paiements, DELETE /paiements/{id}
-- Livraisons : PUT, GET /commandes/{id}/livraison, POST /commandes/{id}/livraison/confirmer, GET /livraisons
-- Statistiques (admin) : /statistiques/tableau-de-bord, /chiffre-affaires, /types-vetement, /top-clients, /impayes
-- Santé : GET /health

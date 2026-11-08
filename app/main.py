@@ -1,4 +1,4 @@
-﻿from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
@@ -47,7 +47,7 @@ for routeur in ROUTEURS:
     app.include_router(routeur, prefix=PREFIXE)
 
 
-@app.get("/health", tags=["SantÃ©"])
+@app.get("/health", tags=["Santé"])
 def health(db: DbSession):
-    db.execute(text("SELECT 1"))  # le sujet demande de vÃ©rifier que la base rÃ©pond
+    db.execute(text("SELECT 1"))  # le sujet demande de vérifier que la base répond
     return {"status": "ok"}
