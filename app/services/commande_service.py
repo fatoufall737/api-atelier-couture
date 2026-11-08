@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+﻿from datetime import date, timedelta
 from uuid import uuid4
 
 from sqlalchemy import func, select
@@ -67,7 +67,7 @@ def creer_commande(
         mesure_defaut = derniere.id if derniere else None
 
     commande = Commande(
-        numero=f"TEMP-{uuid4().hex}",
+        numero=f"T{uuid4().hex[:12]}",
         client_id=donnees.client_id,
         mesure_id=mesure_defaut,
         date_livraison_prevue=date_prevue,
