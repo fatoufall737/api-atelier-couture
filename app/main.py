@@ -7,6 +7,7 @@ from app.deps import DbSession
 from app.routers import auth, catalogue, clients, utilisateurs, mesures
 from app.routers import commandes, commandes_edition, livraisons
 from app.routers import statistiques
+from app.routers import clients_commandes
 
 app = FastAPI(
     title="API Atelier de couture",
@@ -38,6 +39,7 @@ ROUTEURS = (
     commandes_edition.router,
     livraisons.router,
     statistiques.router,
+    clients_commandes.router,
 )
 
 for routeur in ROUTEURS:
