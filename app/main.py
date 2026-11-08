@@ -1,11 +1,11 @@
-from fastapi import FastAPI, Request
+﻿from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.deps import DbSession
 from app.routers import auth, catalogue, clients, utilisateurs, mesures
-from app.routers import commandes, commandes_edition, livraisons
+from app.routers import commandes_detail, commandes, commandes_edition, livraisons
 from app.routers import statistiques
 from app.routers import clients_commandes
 
@@ -35,6 +35,7 @@ ROUTEURS = (
     clients.router,
     catalogue.router,
     mesures.router,
+    commandes_detail.router,
     commandes.router,
     commandes_edition.router,
     livraisons.router,
@@ -46,7 +47,7 @@ for routeur in ROUTEURS:
     app.include_router(routeur, prefix=PREFIXE)
 
 
-@app.get("/health", tags=["Santé"])
+@app.get("/health", tags=["SantÃ©"])
 def health(db: DbSession):
-    db.execute(text("SELECT 1"))  # le sujet demande de vérifier que la base répond
+    db.execute(text("SELECT 1"))  # le sujet demande de vÃ©rifier que la base rÃ©pond
     return {"status": "ok"}
