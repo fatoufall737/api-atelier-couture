@@ -223,3 +223,9 @@ __marimo__/
 *.pyc
 *.code-workspace
 test_unused.db
+
+*.txt
+!requirements.txt
+fix_pg.py
+setup_db.py
+patch_*.py
