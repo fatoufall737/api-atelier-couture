@@ -1,4 +1,4 @@
-﻿from datetime import date
+from datetime import date
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -14,9 +14,9 @@ def planifier(db: Session, commande_id: int, d: dict) -> Livraison:
     if commande.statut in STATUTS_FINAUX:
         raise Conflit("Commande " + commande.statut + " : la livraison n'est plus modifiable")
     if d["mode"] == "domicile" and not (d.get("adresse") or "").strip():
-        raise DonneesInvalides("Une livraison a domicile exige une adresse")
+        raise DonneesInvalides("Une livraison à domicile exige une adresse")
     if d["date_prevue"] < commande.date_commande:
-        raise DonneesInvalides("La date prevue ne peut pas preceder la date de commande")
+        raise DonneesInvalides("La date prévue ne peut pas précéder la date de commande")
 
     livraison = commande.livraison
     if livraison is None:
@@ -35,11 +35,11 @@ def planifier(db: Session, commande_id: int, d: dict) -> Livraison:
 def confirmer(db: Session, commande_id: int, d: dict, utilisateur) -> Livraison:
     commande = get_commande(db, commande_id)
     if commande.statut != "terminee":
-        raise Conflit("La livraison exige une commande terminee (statut actuel : " + commande.statut + ")")
+        raise Conflit("La livraison exige une commande terminée (statut actuel : " + commande.statut + ")")
     solde = commande.montant_total - commande.montant_paye
     autorise = bool(d.get("autoriser_solde_impaye"))
     if solde > 0 and not autorise:
-        raise Conflit("Commande non soldee : " + str(solde) + " FCFA impayes. "
+        raise Conflit("Commande non soldée : " + str(solde) + " FCFA impayés. "
                       "Encaissez le solde ou envoyez autoriser_solde_impaye = true")
 
     date_effective = d.get("date_effective") or date.today()
@@ -66,7 +66,7 @@ def confirmer(db: Session, commande_id: int, d: dict, utilisateur) -> Livraison:
 def lire(db: Session, commande_id: int) -> Livraison:
     commande = get_commande(db, commande_id)
     if commande.livraison is None:
-        raise NonTrouve("Aucune livraison planifiee pour cette commande")
+        raise NonTrouve("Aucune livraison planifiée pour cette commande")
     return commande.livraison
 
 

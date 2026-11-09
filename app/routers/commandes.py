@@ -97,18 +97,6 @@ def lister_commandes(
     return {"items": items, "total": total, "limit": limit, "offset": offset}
 
 
-@router.get("/commandes/{commande_id}", response_model=CommandeRead)
-def detail_commande(
-    commande_id: int,
-    db: DbSession,
-    _: UtilisateurConnecte,
-):
-    commande = db.get(Commande, commande_id)
-
-    if commande is None:
-        raise NonTrouve("Commande introuvable.")
-
-    return commande
 
 
 class StatutEntree(BaseModel):

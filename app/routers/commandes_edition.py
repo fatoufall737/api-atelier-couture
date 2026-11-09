@@ -1,4 +1,4 @@
-﻿from datetime import date
+from datetime import date
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
@@ -7,7 +7,7 @@ from app.deps import Accueil, Admin, DbSession, UtilisateurConnecte
 from app.schemas.commande import CommandeRead
 from app.services import commande_edition_service as svc
 
-router = APIRouter(tags=["commandes"])
+router = APIRouter(tags=["Commandes"])
 
 
 class PaiementOut(BaseModel):

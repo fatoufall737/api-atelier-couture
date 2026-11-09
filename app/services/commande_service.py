@@ -1,4 +1,4 @@
-﻿from datetime import date, timedelta
+from datetime import date, timedelta
 from uuid import uuid4
 
 from sqlalchemy import func, select
@@ -50,7 +50,7 @@ def creer_commande(
 
     date_prevue = donnees.date_livraison_prevue or (date.today() + timedelta(days=max(delais)))
     if date_prevue < date.today():
-        raise DonneesInvalides("La date de livraison prevue ne peut pas preceder la date de commande.")
+        raise DonneesInvalides("La date de livraison prévue ne peut pas précéder la date de commande.")
 
     if donnees.remise > sous_total:
         raise ValueError("La remise ne peut pas dépasser le montant total.")

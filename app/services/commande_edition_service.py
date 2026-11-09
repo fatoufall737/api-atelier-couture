@@ -180,9 +180,9 @@ def changer_statut(db: Session, commande_id: int, nouveau: str, commentaire, uti
     if nouveau == "annulee" and utilisateur.role == "tailleur":
         raise AccesInterdit("Le tailleur ne peut pas annuler une commande")
     if nouveau == ancien:
-        raise Conflit(f"La commande est deja au statut {ancien}")
+        raise Conflit(f"La commande est déjà au statut {ancien}")
     if nouveau == "livree":
-        raise Conflit("Le statut livree resulte de la confirmation de livraison")
+        raise Conflit("Le statut livrée résulte de la confirmation de livraison")
     possibles = [x for x in TRANSITIONS[ancien] if x != "livree"]
     if nouveau not in possibles:
         liste = ", ".join(sorted(possibles)) or "aucun"
